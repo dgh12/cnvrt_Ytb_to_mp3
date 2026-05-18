@@ -99,7 +99,10 @@ def end_program():
 
 def write_log(title, time, error = "None"):
     """writes the log file with the title, time, and error if there is one. The log file will keep the most recent 20 entries."""
-    rows = read_log()
+    try:
+        rows = read_log()
+    except FileNotFoundError:
+        rows = {}
     rows[time] = {"Time": time, "Title": title, "Error": error}
     while len(rows) > 20:
         rows.pop((min(rows)))
@@ -127,6 +130,8 @@ def download_url(url, fileType, filePath):
     title = ""
     download_path = os.path.dirname(abspath(__file__))
     os.chdir(abspath(f"{Path.home()}{filePath}"))
+    if not os.path.exists(f"{download_path}/downloaded.txt"):
+        os.system(f"touch {download_path}/downloaded.txt")
     #set the options for yt_dlp
     ydl_otps = {
         "format": "bestaudio/best",
