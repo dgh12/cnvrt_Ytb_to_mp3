@@ -90,10 +90,12 @@ def handle_merge(title, titles, file_type, file_path):
     """handles the merging of files if the user downloaded a playlist."""
     error = ""
     while True:
-        merge = input("You downloaded a playlist. Do you want to merge the files into one file? [Y/n]: ") or "y"
+        merge = \
+    input("You downloaded a playlist. Do you want to merge the files into one file? [Y/n]: ") or "y"
         if merge.lower() in ["y", "n"]:
             if merge.lower() == "y":
-                merge_filename = input(f"What is the name of the file to merge the files into? (default: {title}): ") or title
+                merge_filename = \
+       input(f"What is the name of the file to merge the files into? (default: {title}): ") or title
                 print("Merging files...")
                 success, error = merge_files(merge_filename, titles, file_type, file_path)
                 if success:
@@ -129,7 +131,7 @@ def get_user_input():
                 is_playlist = (str(input("Download as playlist? [y/N] : ")) or "n").lower()
             while file_type not in vals:
                 file_type = str(input("Enter the file type\n"+\
-                        "accepted formats: mp3, wav, flac, aac, ogg, m4a, or opus (default: mp3): "))\
+                "accepted formats: mp3, wav, flac, aac, ogg, m4a, or opus (default: mp3): "))\
                                         or "mp3"
             while file_path == "":
                 file_path = str(input("Enter the file path: "))
@@ -141,26 +143,21 @@ def get_user_input():
             if useript == "2":
                 return None, None, None, None, [], None
             print("Continuing with the download process...")
-            if file_path:
-                if file_path[0] != "/":
-                    file_path = f"/{file_path}"
-            else:
-                raise FileNotFoundError("No file path provided.")
-            if is_playlist.lower() not in ["y", "n"]:
-                raise ValueError("Invalid input for playlist. Please enter 'y' or 'n'.")
+            if file_path[0] != "/":
+                file_path = f"/{file_path}"
             dwnlod_playlist = bool(is_playlist.lower() == "y")
             while verbose not in ["v", ""]:
                 verbose = input("Press 'v' for a verbose output or press enter to continue\n>> ")
             # input is validated separately to simplify the error handling
             # and provide more specific error messages to the user.
-            success, title, urls, download_as_playlist = validate_user_input(url, dwnlod_playlist, file_type, file_path, verbose)
+            success, title, urls, download_as_playlist = \
+                validate_user_input(url, dwnlod_playlist, file_type, file_path, verbose)
             if success:
                 input_valid = True
         except (ValueError, FileNotFoundError) as error:
             if isinstance(error, ValueError):
                 print("Invalid input type. Please enter valid values.")
-            elif isinstance(error, FileNotFoundError):
-                print("File not found. Please enter valid file path.")
+            print("File not found. Please enter valid file path.")
     return download_as_playlist, file_type, file_path, title, urls, verbose
 
 def validate_user_input(url, dwnload_playlist, file_type, file_path, verbose):
@@ -175,7 +172,8 @@ def validate_user_input(url, dwnload_playlist, file_type, file_path, verbose):
             raise InvalidFileTypeError("Invalid file type.")
         print("input valid\n")
         print("Validating url...\n")
-        success, title, urls, download_as_playlist = validate_url(url, not dwnload_playlist, verbose)
+        success, title, urls, download_as_playlist =\
+              validate_url(url, not dwnload_playlist, verbose)
         if success:
             return True, title, urls, download_as_playlist
 
@@ -285,7 +283,8 @@ def download_url(urls, kwargs):
     os.chdir(abspath(f"{Path.home()}{kwargs['file_path']}"))
     for url in urls:
         print(url["title"])
-        if os.path.exists(f"{Path.home()}{kwargs['file_path']}/{url['title']}.{kwargs['file_type']}"):
+        if os.path.exists(\
+            f"{Path.home()}{kwargs['file_path']}/{url['title']}.{kwargs['file_type']}"):
             print("File already exists. Skipping download.\n")
             exists.append(True)
         else:
@@ -324,7 +323,7 @@ def download_url(urls, kwargs):
                 with yt_dlp.YoutubeDL(ydl_otps) as ydl:
                     ydl.download([url["url"]])
         write_log(title, set_time)
-    except Exception as error:
+    except (DownloadError, ExtractorError) as error:
         write_log(title, set_time, str(error))
         os.chdir(file_path)
         return False
@@ -335,7 +334,8 @@ def merge_files(merge_filename, titles, filetype, file_path):
     """merges the playlist files downloaded into one file."""
     remove = ""
     while remove not in ["y", "n"]:
-        remove = (input("Do you want to remove the individual playlist files [Y/n] : ") or "n").lower()
+        remove = \
+            (input("Do you want to remove the individual playlist files [Y/n] : ") or "n").lower()
     try:
         for title in titles:
             print(f"{title}.{filetype}")
@@ -362,7 +362,7 @@ def merge_files(merge_filename, titles, filetype, file_path):
                 os.remove(f"{title}.{filetype}")
 
         return True, ""
-    except Exception as error:
+    except (FileNotFoundError, FileExistsError) as error:
         return False, str(error)
 
 def make_ascii_compatable(_title):

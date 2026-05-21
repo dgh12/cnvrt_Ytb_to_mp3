@@ -4,8 +4,8 @@ import os
 import asyncio
 import shutil
 from pathlib import Path
-from convert import download_url, validate_user_input
 import pytest
+from convert import download_url, validate_user_input
 
 @pytest.mark.asyncio
 async def download(test_path):
