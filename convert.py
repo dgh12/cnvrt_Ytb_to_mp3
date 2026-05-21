@@ -310,6 +310,7 @@ def download_url(urls, kwargs):
     """Implementation for downloading YouTube video as audio file using yt_dlp
   This function takes the URL and the user input as an argument dictionary"""
     title = kwargs["title"]
+    notitle = "none"
     to_download = []
     exists = []
     path_to_deno = abspath(".local/bin/deno")
@@ -338,12 +339,12 @@ def download_url(urls, kwargs):
                 "format": "bestaudio/best",
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
-                    "preferredcodec": kwargs["file_type"],
+                    "preferredcodec": (kwargs["file_type"] or "mp3"),
                     "preferredquality": "320",
                 }],
-                "noplaylist": kwargs["is_playlist"],
+                "noplaylist": (kwargs["is_playlist"] or True),
                 "js-runtimes": {"deno": {"path": path_to_deno}},
-                "outtmpl": f"{url['title']}.%(ext)s",
+                "outtmpl": f"{url['title'] or notitle}.%(ext)s",
                 "quiet": False,
                 "display-progress": True,
 
