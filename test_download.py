@@ -22,11 +22,11 @@ async def download(test_path):
     if not _success:
         return False, None
     kwargs = {
-        "is_playlist": not dwnload_playlist,
+        "verbose": verbose,
         "file_type": file_type,
-        "file_path": file_path,
+        "is_playlist": not dwnload_playlist,
         "title": title,
-        "verbose": verbose
+        "file_path": file_path,
     }
     success = download_url(urls, kwargs)
     if not success:
