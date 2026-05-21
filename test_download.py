@@ -21,7 +21,6 @@ async def download(test_path):
     validate_user_input(_url, _dwnload_playlist, file_type, file_path, verbose)
     if not _success:
         return False, None
-    print("Downloading...")
     kwargs = {
         "is_playlist": not dwnload_playlist,
         "file_type": file_type,
@@ -29,13 +28,8 @@ async def download(test_path):
         "title": title,
         "verbose": verbose
     }
-    if not verbose:
-        print("This may take a few minuites.")
     success = download_url(urls, kwargs)
-    if success:
-        print("Download successful!")
-    else:
-        print("Download failed. Please check the log for more details.")
+    if not success:
         return False, None
     return True, title
 
