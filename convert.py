@@ -1,51 +1,57 @@
-"""This program allows the user to download YouTube videos as audio files in a specified file type and file path.
-The program uses the yt_dlp library to download the audio from the YouTube video and convert it to the specified file type.
-The program also keeps a log of the downloads, including the title of the video, the time of the download, and any errors
-that occur during the download process. The log is stored in a CSV file (music_download_log.csv) and keeps the most recent 20 entries."""
+"""This program allows the user to download YouTube videos as audio files in a
+ specified file type and file path.The program uses the yt_dlp library to download
+the audio from the YouTube video and convert it to the specified file type.
+The program also keeps a log of the downloads, including the title of the video, 
+the time of the download, and any errors that occur during the download process.
+ The log is stored in a CSV file (music_download_log.csv) and keeps the most recent 20 entries."""
 
 import csv
+import io
 import os
 from os.path import abspath
 import datetime
-import io
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from tomlkit import key
+import sys
+from unidecode import unidecode
+from yt_dlp.utils import ExtractorError, DownloadError
 import yt_dlp
+from custom_error import UrlError, InvalidFileTypeError
 
 def run():
-    """main function to run the program. It will get the user input, download the YouTube video as an audio file,
+    """main function to run the program. It will get the user input,
+      download the YouTube video as an audio file,
     and handle any errors that occur during the download process."""
     display_header()
     display_menu()
-    while True:
-        command = input("\nenter command or type 'h' for the list of commands\n>>")
-        if command == "1":
-            url, fileType, filePath = get_user_input()
-            if not url or not fileType or not filePath:
-                continue
-            print("Downloading...")
-            success = download_url(url, fileType, filePath)
-            if success:
-                print("Download successful!")
+    try:
+        while True:
+            command = input("\nenter command or type 'h' for the list of commands\n>>")
+            if command == "1":
+                if not manage_download():
+                    continue
+            elif command == "2":
+                if authenticate():
+                    rows = read_log()
+                    for val in rows.values():
+                        print(val)
+
+            elif command == "3":
+                end_program()
+
+            elif command == "h":
+                display_menu()
+
             else:
-                print("Download failed. Please check the log for more details.")
-        elif command == "2":
-            if authenticate():
-                rows = read_log()
-                for row in rows:
-                    print("\n", rows[row])
-        elif command == "3":
-            end_program()
-        elif command == "h":
-            display_menu()
-        else:
-            print("Invalid command. Please try again.")
-    
+                print("Invalid command. Please try again.")
+    except KeyboardInterrupt:
+        print("\n")
+        end_program()
+
 def display_header():
     """displays the header for the program."""
     print("The YouTube Video Downloader Program\n")
-    
+
 def display_menu():
     """displays the menu for the program."""
     print("Commands:")
@@ -53,52 +59,197 @@ def display_menu():
     print("view the download log  --- enter '2'")
     print("exit the program   ------- enter '3'")
 
+def manage_download():
+    """manages the download process to simplify the run function
+      and handle any errors that occur during the download process."""
+    dwnload_playlist, file_type, file_path, title, urls, verbose = get_user_input()
+    titles = []
+    for url in urls:
+        titles.append(url["title"])
+    print("Downloading...")
+    kwargs = {
+        "is_playlist": not dwnload_playlist,
+        "file_type": file_type,
+        "file_path": file_path,
+        "title": title,
+        "verbose": verbose
+    }
+    if not verbose:
+        print("This may take a few minuites.")
+    success = download_url(urls, kwargs)
+    if success:
+        print("Download successful!")
+        if dwnload_playlist:
+            handle_merge(title,titles, file_type, file_path)
+    else:
+        print("Download failed. Please check the log for more details.")
+        return False
+    return True
+
+def handle_merge(title, titles, file_type, file_path):
+    """handles the merging of files if the user downloaded a playlist."""
+    error = ""
+    while True:
+        merge = input("You downloaded a playlist. Do you want to merge the files into one file? [Y/n]: ") or "y"
+        if merge.lower() in ["y", "n"]:
+            if merge.lower() == "y":
+                merge_filename = input(f"What is the name of the file to merge the files into? (default: {title}): ") or title
+                print("Merging files...")
+                success, error = merge_files(merge_filename, titles, file_type, file_path)
+                if success:
+                    print("Files merged successfully!")
+                else:
+                    print("Failed to merge files. Please check the log for more details.")
+                    write_log(title, str(datetime.datetime.now()), error)
+            break
+        print("Invalid input. Please enter 'y' or 'n.'")
+
 def get_user_input():
     """get the user input for the YouTube URL, file type, and file path. 
     The function will validate the input and return the values as a tuple. """
-    url = ""
-    fileType = ""
-    filePath = ""
+    file_path = ""
+    file_type = ""
+    title = ""
+    download_as_playlist = ""
+    urls = []
+    vals = ["mp3","wav", "flac", "acc", "ogg", "m4a", "opus"]
+    dwnlod_playlist = bool()
+    verbose = "n"
     input_valid = False
     #a while loop is used to repeatedly prompt the user for input until valid input is provided.
     while not input_valid:
         try:
-            url = str(input("Enter the YouTube URL: "))
-            fileType = str(input("Enter the file type \naccepted formats: mp3, wav, flac, aac, ogg, m4a, or opus (default: mp3): ")) or "mp3"
-            filePath = str(input("Enter the file path: "))
-            useript =  input("To continue enter '1.'\
-                             \nTo reenter the input enter '2.'\
-                             \nTo return to the main menu enter '3.'\n>>")
+            url = ""
+            file_type = ""
+            file_path = ""
+            is_playlist = ""
+            while url == "":
+                url = str(input("Enter the YouTube URL: "))
+            while is_playlist not in ["y", "n"]:
+                is_playlist = (str(input("Download as playlist? [y/N] : ")) or "n").lower()
+            while file_type not in vals:
+                file_type = str(input("Enter the file type\n"+\
+                        "accepted formats: mp3, wav, flac, aac, ogg, m4a, or opus (default: mp3): "))\
+                                        or "mp3"
+            while file_path == "":
+                file_path = str(input("Enter the file path: "))
+            useript =  input("\nTo return to the main menu enter '2.'\
+                             \nTo reenter the input enter '1.'\
+                             \nPress enter to continue to download\n>>")
             if useript == "1":
-                pass
-            elif useript == "2":
                 continue
-            elif useript == "3":
-                return None, None, None
-            if filePath[0] != "/":
-                filePath = f"/{filePath}"
-        except ValueError:
-            print("Invalid input. Please enter valid values.")
-        if url and fileType and filePath:
-            input_valid = True
-    return url, fileType, filePath
+            if useript == "2":
+                return None, None, None, None, [], None
+            print("Continuing with the download process...")
+            if file_path:
+                if file_path[0] != "/":
+                    file_path = f"/{file_path}"
+            else:
+                raise FileNotFoundError("No file path provided.")
+            if is_playlist.lower() not in ["y", "n"]:
+                raise ValueError("Invalid input for playlist. Please enter 'y' or 'n'.")
+            dwnlod_playlist = bool(is_playlist.lower() == "y")
+            while verbose not in ["v", ""]:
+                verbose = input("Press 'v' for a verbose output or press enter to continue\n>> ")
+            # input is validated separately to simplify the error handling
+            # and provide more specific error messages to the user.
+            success, title, urls, download_as_playlist = validate_user_input(url, dwnlod_playlist, file_type, file_path, verbose)
+            if success:
+                input_valid = True
+        except (ValueError, FileNotFoundError) as error:
+            if isinstance(error, ValueError):
+                print("Invalid input type. Please enter valid values.")
+            elif isinstance(error, FileNotFoundError):
+                print("File not found. Please enter valid file path.")
+    return download_as_playlist, file_type, file_path, title, urls, verbose
+
+def validate_user_input(url, dwnload_playlist, file_type, file_path, verbose):
+    """validates the user input for the YouTube URL, file type, and file path."""
+    print("Validating input...\n")
+    title = ""
+    try:
+        os.chdir(abspath(f"{Path.home()}{file_path}"))
+        os.chdir(os.path.dirname(abspath(__file__)))
+
+        if file_type not in ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]:
+            raise InvalidFileTypeError("Invalid file type.")
+        print("input valid\n")
+        print("Validating url...\n")
+        success, title, urls, download_as_playlist = validate_url(url, not dwnload_playlist, verbose)
+        if success:
+            return True, title, urls, download_as_playlist
+
+    except (FileNotFoundError, UrlError, \
+            InvalidFileTypeError, ExtractorError, DownloadError) as error:
+        if isinstance(error, FileNotFoundError):
+            print("File not found. Please enter valid file path.")
+        elif isinstance(error, UrlError):
+            print("Invalid URL provided. Please enter a valid URL.")
+        elif isinstance(error, InvalidFileTypeError):
+            print("Invalid file type. Please enter a valid file type.")
+        elif isinstance(error, DownloadError):
+            print(str(error))
+        else:
+            print(f"An unexpected error occurred: {error}")
+    return False, None, [], None
+
+def validate_url(url, is_not_playlist, verbose):
+    """validates the YouTube URL by trying to extract the information from the URL using yt_dlp."""
+    title = ""
+    urls = []
+    try:
+        if url:
+            if verbose != "v":
+                print("This may take a moment...\n")
+                with io.StringIO() as buf, redirect_stderr(buf), redirect_stdout(buf):
+                    with yt_dlp.YoutubeDL({"noplaylist": is_not_playlist}) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        title = info.get("title", None) or ""
+                        titles_array = info.get("entries", [])
+            else:
+                with yt_dlp.YoutubeDL({"noplaylist": is_not_playlist}) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    title = info.get("title", None) or ""
+                    titles_array = info.get("entries", [])
+            if len(titles_array) > 0:
+                dwnload_as_playlist = True
+                for entry in titles_array:
+                    _title = entry["title"]
+                    __title = make_ascii_compatable(_title)
+                    urls.append({"url": entry["original_url"], "title": __title})
+            else:
+                dwnload_as_playlist = False
+                _title = title
+                __title = make_ascii_compatable(_title)
+                urls.append({"url": info.get("original_url"), "title": __title})
+            print("url check successful!\n")
+            return True, title, urls, dwnload_as_playlist
+        raise UrlError("No URL provided.")
+    except (UrlError, ExtractorError, DownloadError) as error:
+        if isinstance(error, UrlError):
+            print("Invalid URL provided. Please enter a valid URL.")
+        elif isinstance(error, DownloadError):
+            print(str(error))
+        else:
+            print(f"An unexpected error occurred: \n {type(error).__name__}: {error}")
+    return False, None, [], None
 
 def authenticate():
     """authenticates if the user can view the logs by asking for a password."""
     password = input("Enter the password to view the logs: ")
     if password == "password":
         return True
-    else:
-        print("Incorrect password. Access denied.")
-        return False
+    print("Incorrect password. Access denied.")
+    return False
 
 def end_program():
     """ends the program and prints a message to the user."""
     print("Ending Music Downloading Program")
-    exit()
+    sys.exit()
 
 def write_log(title, time, error = "None"):
-    """writes the log file with the title, time, and error if there is one. The log file will keep the most recent 20 entries."""
+    """writes the log file with the title, time, and error if there is one.
+      The log file will keep the most recent 20 entries."""
     try:
         rows = read_log()
     except FileNotFoundError:
@@ -106,66 +257,122 @@ def write_log(title, time, error = "None"):
     rows[time] = {"Time": time, "Title": title, "Error": error}
     while len(rows) > 20:
         rows.pop((min(rows)))
-    with open("music_download_log.csv", "w", newline="") as log_file:
+    with open("music_download_log.csv", "w", newline="", encoding="utf-8") as log_file:
         writer = csv.DictWriter(log_file, fieldnames=["Time", "Title", "Error"])
         writer.writeheader()
-        for row in rows:
-            writer.writerow(rows[row])
-            
+        for val in rows.values():
+            writer.writerow(val)
 
 def read_log():
     """reads the log file"""
     os.chdir(os.path.dirname(abspath(__file__)))
     rows = {}
-    with open("music_download_log.csv", "r") as log_file:
+    with open("music_download_log.csv", "r", encoding="utf-8") as log_file:
         reader = csv.DictReader(log_file)
         for row in reader:
             rows[row["Time"]] = row
     return rows
 
-def download_url(url, fileType, filePath):
-    """Implementation for downloading YouTube video as audio file using yt_dlp"""
+def download_url(urls, kwargs):
+    """Implementation for downloading YouTube video as audio file using yt_dlp
+       This function takes the URL and the user input as an argument dictionary"""
+    title = kwargs["title"]
+    to_download = []
+    exists = []
     path_to_deno = abspath(".local/bin/deno")
-    setTime = str(datetime.datetime.now())
-    title = ""
-    download_path = os.path.dirname(abspath(__file__))
-    os.chdir(abspath(f"{Path.home()}{filePath}"))
-    if not os.path.exists(f"{download_path}/downloaded.txt"):
-        os.system(f"touch {download_path}/downloaded.txt")
+    set_time = str(datetime.datetime.now())
+    file_path = os.path.dirname(abspath(__file__))
+    os.chdir(abspath(f"{Path.home()}{kwargs['file_path']}"))
+    for url in urls:
+        print(url["title"])
+        if os.path.exists(f"{Path.home()}{kwargs['file_path']}/{url['title']}.{kwargs['file_type']}"):
+            print("File already exists. Skipping download.\n")
+            exists.append(True)
+        else:
+            print("File not found. We will download it.\n")
+            exists.append(False)
+            to_download.append({"url":url["url"], "title":url["title"]})
+    if False not in exists and len(exists) > 0:
+        print("All files already exist. Skipping download.")
+        os.chdir(file_path)
+        return True
+    print()
     #set the options for yt_dlp
-    ydl_otps = {
-        "format": "bestaudio/best",
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": fileType,
-            "preferredquality": "320",
-        }],
-        "js-runtimes": {"deno" : {"path": path_to_deno}},
-        "outtmpl": f"%(title)s.%(ext)s",
-        "download_archive": f"{download_path}/downloaded.txt",
-        "quiet": False,
-        "display-progress": True,
-
-    }
-    
     try:
-        #run yt_dlp and suppress the output and error messages to avoid cluttering the console.
+        #run yt_dlp and suppress error messages to avoid cluttering the console.
         #any errors that occur during the download process are logged.
-        #    print variable "f" to view the output and error messages from yt_dlp for debugging purposes.
-        f = io.StringIO()
-        with redirect_stdout(f), redirect_stderr(f):
-            with yt_dlp.YoutubeDL() as ydl:
-                print("before creating file")
-                title = ydl.extract_info(url, download=False).get("title",None)
-                print("after creating file")
-            with yt_dlp.YoutubeDL(ydl_otps) as ydl:
-                ydl.download([url])
-                write_log(title, setTime)
-#        print(f.getvalue())
-        
-    except Exception as e:
-        write_log(title, setTime, str(e))
+        for url in to_download:
+            ydl_otps = {
+                "format": "bestaudio/best",
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": kwargs["file_type"],
+                    "preferredquality": "320",
+                }],
+                "noplaylist": kwargs["is_playlist"],
+                "js-runtimes": {"deno" : {"path": path_to_deno}},
+                "outtmpl": f"{url['title']}.%(ext)s",
+                "quiet": False,
+                "display-progress": True,
+
+            }
+            if kwargs["verbose"] != "v":
+                with io.StringIO() as buf, redirect_stderr(buf), redirect_stdout(buf):
+                    with yt_dlp.YoutubeDL(ydl_otps) as ydl:
+                        ydl.download([url["url"]])
+            else:
+                with yt_dlp.YoutubeDL(ydl_otps) as ydl:
+                    ydl.download([url["url"]])
+        write_log(title, set_time)
+    except Exception as error:
+        write_log(title, set_time, str(error))
+        os.chdir(file_path)
         return False
+    os.chdir(file_path)
     return True
 
-run()
+def merge_files(merge_filename, titles, filetype, file_path):
+    """merges the playlist files downloaded into one file."""
+    remove = ""
+    while remove not in ["y", "n"]:
+        remove = (input("Do you want to remove the individual playlist files [Y/n] : ") or "n").lower()
+    try:
+        for title in titles:
+            print(f"{title}.{filetype}")
+
+        os.chdir(abspath(f"{Path.home()}{file_path}"))
+
+        if os.path.exists(f"{merge_filename}.{filetype}"):
+            print(f"File {merge_filename}.{filetype} already exists. Skipping merge.")
+            if remove:
+                for title in titles:
+                    os.remove(f"{title}.{filetype}")
+            return True, ""
+
+        with open("merge.txt", "w", encoding="utf-8") as f:
+            for title in titles:
+                f.write(f"file '{title}.{filetype}'\n")
+
+        os.system(f"ffmpeg -f concat -safe 0 -i merge.txt -c copy '{merge_filename}.{filetype}'")
+        os.remove("merge.txt")
+
+
+        if remove == "y":
+            for title in titles:
+                os.remove(f"{title}.{filetype}")
+
+        return True, ""
+    except Exception as error:
+        return False, str(error)
+
+def make_ascii_compatable(_title):
+    "this function makes the title returned ascii compatable"
+    os.chdir(abspath(f"{Path.home()}/Music/"))
+    chardict = {"-": "*"}
+    title = ''
+    for nascii, iascii in chardict.items():
+        title = _title.replace(nascii, iascii)
+    return unidecode(title, errors="strict")
+
+if __name__ == "__main__":
+    run()
