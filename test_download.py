@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from convert import download_url, validate_user_input
 
+
 @pytest.mark.asyncio
 async def download(test_path):
     """manages the download process to simplify the run function
@@ -17,8 +18,8 @@ async def download(test_path):
     file_path = test_path
     verbose = "v"
 
-    _success, title, urls, dwnload_playlist = \
-    validate_user_input(_url, _dwnload_playlist, file_type, file_path, verbose)
+    _success, title, urls, dwnload_playlist = validate_user_input(
+        _url, _dwnload_playlist, file_type, file_path, verbose)
     if not _success:
         return False, None
     kwargs = {
@@ -33,6 +34,7 @@ async def download(test_path):
         return False, None
     return True, title
 
+
 @pytest.mark.asyncio
 async def test_download():
     """run test"""
@@ -45,7 +47,7 @@ async def test_download():
 
     try:
         os.system(f"ffplay '{title}.mp3")
-        exists =  True
+        exists = True
     except FileExistsError:
         exists = False
     shutil.rmtree(f"{Path.home()}/test")
