@@ -1,3 +1,10 @@
 music_download_log.csv
 downloaded.txt
-pycache/
+__pycache__/
+bin/
+cnvert_Ytb_to_mp3/
+cnvert_Ytb_to_mp3_python/
+include/
+lib/
+lib64/
+pyvenv.cfg
