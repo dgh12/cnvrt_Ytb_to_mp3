@@ -394,7 +394,6 @@ def download_url(urls, kwargs):
     exists = []
     path_to_deno = shutil.which("deno")
     set_time = str(datetime.datetime.now())
-    file_path = os.path.dirname(abspath(__file__))
     # go through each url...
     for url in urls:
         # print its title...
@@ -415,9 +414,7 @@ def download_url(urls, kwargs):
     # check if all the files exist
     if False not in exists and len(exists) > 0:
         print("All files already exist. Skipping download.")
-        # if they all exist change the working directory to the directory
-        # of the current file and return true to indicate success
-        os.chdir(file_path)
+        # return true to indicate success
         return True
 
     # try to download the url...
@@ -458,13 +455,9 @@ def download_url(urls, kwargs):
     except (DownloadError, ExtractorError) as error:
         # if there are errors write them to the log and...
         write_log(title, set_time, str(error))
-        # change the working directory to the directory of the current file
-        # and return false to indicate failure
-        os.chdir(file_path)
+        # return false to indicate failure
         return False
-    # if the files downloaded successfully change the working directory
-    # to the directory of the current file and return true to indicate success
-    os.chdir(file_path)
+    # return true to indicate success
     return True
 
 
@@ -482,8 +475,6 @@ def merge_files(merge_filename, titles, filetype, file_path):
         # print each title in the playlist.
         for title in titles:
             print(f"{title}.{filetype}")
-        # change working directory to the directory of the files
-        os.chdir(abspath(f"{Path.home()}{file_path}"))
 
         # check if the merge file already exists...
         if os.path.exists(f"{merge_filename}.{filetype}"):
@@ -495,9 +486,6 @@ def merge_files(merge_filename, titles, filetype, file_path):
                 # remove each individual file and..
                 for title in titles:
                     os.remove(f"{title}.{filetype}")
-            # finish by changing the working directory
-            # to the directory of the current file and...
-            os.chdir(os.path.dirname(abspath(__file__)))
             # indicate success by returning no error
             return ""
 
@@ -523,7 +511,8 @@ def merge_files(merge_filename, titles, filetype, file_path):
         # indicate success by returning no error
         return ""
     # except if there is an error
-    except (FileNotFoundError, FileExistsError, subprocess.CalledProcessError) as error:
+    except (FileNotFoundError, FileExistsError,
+            subprocess.CalledProcessError) as error:
 
         # indicate failure by returning an error
         return str(error)

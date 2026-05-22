@@ -52,7 +52,7 @@ async def test_download():
     downloaded, title = await _download
 
     try:
-        subprocess.run(["ffplay", f"'{title}.mp3'"], check=True)
+        subprocess.run(["ffplay", f"{title}.mp3"], check=True)
         exists = True
     except subprocess.CalledProcessError:
         exists = False
