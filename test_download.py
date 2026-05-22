@@ -5,7 +5,7 @@ import asyncio
 import shutil
 from pathlib import Path
 import pytest
-from convert import download_url, validate_user_input
+from convert import download_url, validate_file_path, validate_url
 
 
 @pytest.mark.asyncio
@@ -17,10 +17,14 @@ async def download(test_path):
     file_type = "mp3"
     file_path = test_path
     verbose = "v"
+    is_valid = []
 
-    _success, title, urls, dwnload_playlist = validate_user_input(
-        _url, _dwnload_playlist, file_type, file_path, verbose)
-    if not _success:
+    is_valid.append(validate_file_path(file_path))
+    value, title, urls, dwnload_playlist = \
+        validate_url(_url, not _dwnload_playlist, verbose)
+    is_valid.append(value)
+
+    if False not in is_valid:
         return False, None
     kwargs = {
         "verbose": verbose,
