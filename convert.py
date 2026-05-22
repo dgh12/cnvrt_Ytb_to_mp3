@@ -14,6 +14,8 @@
 import csv
 import io
 import os
+import shutil
+import subprocess
 from os.path import abspath
 import datetime
 from contextlib import redirect_stderr, redirect_stdout
@@ -22,9 +24,6 @@ import sys
 from unidecode import unidecode
 from yt_dlp.utils import ExtractorError, DownloadError
 from yt_dlp import YoutubeDL
-
-# password for authentication
-PASSWORD = "password"
 
 
 # function that runs and coordinates the access to the logging and downloading
@@ -55,11 +54,9 @@ def run():
                     continue
             # command 2 opens the log file
             elif command == "2":
-                # if the user enters the correct password he can view the logs
-                if authenticate():
-                    rows = read_log()
-                    for val in rows.values():
-                        print(val)
+                rows = read_log()
+                for val in rows.values():
+                    print(val)
             # command 3 ends the program
             elif command == "3":
                 end_program()
@@ -162,7 +159,7 @@ def handle_merge(title, titles, file_type, file_path):
         error = merge_files(merge_filename, titles,
                             file_type, file_path)
         # if the files are merged successfully tell the user
-        if len(error) > 0:
+        if len(error) < 0:
             print("Files merged successfully!")
         # else tell the user there was an error and write the error to the
         # log
@@ -183,7 +180,7 @@ def get_user_input():
     title = ""
     download_as_playlist = ""
     urls = []
-    vals = ["mp3", "wav", "flac", "acc", "ogg", "m4a", "opus"]
+    vals = ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]
     dwnlod_playlist = bool()
     verbose = "n"
     input_valid = False
@@ -338,18 +335,6 @@ def validate_url(url, is_not_playlist, verbose):
     return False, None, [], None
 
 
-# authenticates the user via password
-def authenticate():
-    """authenticates if the user can view the logs by asking for a password."""
-    password = input("Enter the password to view the logs: ")
-    # if the password is equal to variable: PASSWORD
-    if password == PASSWORD:
-        return True
-    # other wise the access is denied
-    print("Incorrect password. Access denied.")
-    return False
-
-
 # gracefully ends program
 def end_program():
     """ends the program and prints a message to the user."""
@@ -405,15 +390,11 @@ def download_url(urls, kwargs):
   This function takes the URL and the user input as an argument dictionary"""
     # initialize the variables needed
     title = kwargs["title"]
-    notitle = "none"
     to_download = []
     exists = []
-    path_to_deno = abspath(".local/bin/deno")
+    path_to_deno = shutil.which("deno")
     set_time = str(datetime.datetime.now())
     file_path = os.path.dirname(abspath(__file__))
-    # change the working directory to the directory the user specified to
-    # download to.
-    os.chdir(abspath(f"{Path.home()}{kwargs['file_path']}"))
     # go through each url...
     for url in urls:
         # print its title...
@@ -451,9 +432,10 @@ def download_url(urls, kwargs):
                     "preferredcodec": (kwargs["file_type"] or "mp3"),
                     "preferredquality": "320",
                 }],
-                "noplaylist": (kwargs["is_playlist"] or True),
+                "noplaylist": True,
                 "js-runtimes": {"deno": {"path": path_to_deno}},
-                "outtmpl": f"{url['title'] or notitle}.%(ext)s",
+                "outtmpl": f"{Path.home()}{kwargs['file_path']}" +
+                           f"/{url['title']}.%(ext)s",
                 "quiet": False,
                 "display-progress": True,
 
@@ -509,7 +491,7 @@ def merge_files(merge_filename, titles, filetype, file_path):
             print(f"File {merge_filename}.{filetype} already exists. " +
                   "Skipping merge.")
             # if the user wants to remove the individual playlist files...
-            if remove:
+            if remove == "y":
                 # remove each individual file and..
                 for title in titles:
                     os.remove(f"{title}.{filetype}")
@@ -525,8 +507,10 @@ def merge_files(merge_filename, titles, filetype, file_path):
                 f.write(f"file '{title}.{filetype}'\n")
 
         # use ffmpeg to join the files and...
-        os.system("ffmpeg -f concat -safe 0 -i merge.txt -c copy " +
-                  f"'{merge_filename}.{filetype}'")
+        subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i",
+                        "merge.txt", "-c", "copy",
+                        f"'{merge_filename}.{filetype}'"],
+                       check=True, cwd=f"{Path.home()}{file_path}",)
         # remove merge.txt
         os.remove("merge.txt")
 
@@ -536,16 +520,11 @@ def merge_files(merge_filename, titles, filetype, file_path):
             for title in titles:
                 os.remove(f"{title}.{filetype}")
 
-        # finish by changing the working directory
-        # to the directory of the current file and...
-        os.chdir(os.path.dirname(abspath(__file__)))
         # indicate success by returning no error
         return ""
     # except if there is an error
     except (FileNotFoundError, FileExistsError) as error:
-        # change the working directory
-        # to the directory of the current file and...
-        os.chdir(os.path.dirname(abspath(__file__)))
+
         # indicate failure by returning an error
         return str(error)
 

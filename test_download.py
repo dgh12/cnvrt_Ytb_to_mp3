@@ -1,6 +1,7 @@
 """import and test the download function for downloading a video."""
 
 import os
+import subprocess
 import asyncio
 import shutil
 from pathlib import Path
@@ -25,16 +26,17 @@ async def download(test_path):
     is_valid.append(value)
 
     if False not in is_valid:
-        return False, None
-    kwargs = {
-        "verbose": verbose,
-        "file_type": file_type,
-        "is_playlist": not dwnload_playlist,
-        "title": title,
-        "file_path": file_path,
-    }
-    success = download_url(urls, kwargs)
-    if not success:
+        kwargs = {
+            "verbose": verbose,
+            "file_type": file_type,
+            "is_playlist": not dwnload_playlist,
+            "title": title,
+            "file_path": file_path,
+        }
+        success = download_url(urls, kwargs)
+        if not success:
+            return False, None
+    else:
         return False, None
     return True, title
 
@@ -50,7 +52,7 @@ async def test_download():
     downloaded, title = await _download
 
     try:
-        os.system(f"ffplay '{title}.mp3")
+        subprocess.run(["ffplay", f"'{title}.mp3'"], check=True)
         exists = True
     except FileExistsError:
         exists = False
