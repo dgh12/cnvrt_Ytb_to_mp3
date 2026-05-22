@@ -23,6 +23,9 @@ from unidecode import unidecode
 from yt_dlp.utils import ExtractorError, DownloadError
 from yt_dlp import YoutubeDL
 
+# password for authentication
+PASSWORD = "password"
+
 
 # function that runs and coordinates the access to the logging and downloading
 # functions; it also terminates the program gracefully.
@@ -339,8 +342,8 @@ def validate_url(url, is_not_playlist, verbose):
 def authenticate():
     """authenticates if the user can view the logs by asking for a password."""
     password = input("Enter the password to view the logs: ")
-    # if the password is equal to preset: "password"
-    if password == "password":
+    # if the password is equal to variable: PASSWORD
+    if password == PASSWORD:
         return True
     # other wise the access is denied
     print("Incorrect password. Access denied.")
