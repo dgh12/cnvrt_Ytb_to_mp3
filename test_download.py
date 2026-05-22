@@ -54,7 +54,7 @@ async def test_download():
     try:
         subprocess.run(["ffplay", f"'{title}.mp3'"], check=True)
         exists = True
-    except FileExistsError:
+    except subprocess.CalledProcessError:
         exists = False
     shutil.rmtree(f"{Path.home()}/test")
     assert downloaded and exists

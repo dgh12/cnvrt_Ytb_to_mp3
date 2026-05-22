@@ -159,7 +159,7 @@ def handle_merge(title, titles, file_type, file_path):
         error = merge_files(merge_filename, titles,
                             file_type, file_path)
         # if the files are merged successfully tell the user
-        if len(error) < 0:
+        if len(error) == 0:
             print("Files merged successfully!")
         # else tell the user there was an error and write the error to the
         # log
@@ -509,7 +509,7 @@ def merge_files(merge_filename, titles, filetype, file_path):
         # use ffmpeg to join the files and...
         subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i",
                         "merge.txt", "-c", "copy",
-                        f"'{merge_filename}.{filetype}'"],
+                        f"{merge_filename}.{filetype}"],
                        check=True, cwd=f"{Path.home()}{file_path}",)
         # remove merge.txt
         os.remove("merge.txt")
@@ -523,7 +523,7 @@ def merge_files(merge_filename, titles, filetype, file_path):
         # indicate success by returning no error
         return ""
     # except if there is an error
-    except (FileNotFoundError, FileExistsError) as error:
+    except (FileNotFoundError, FileExistsError, subprocess.CalledProcessError) as error:
 
         # indicate failure by returning an error
         return str(error)
