@@ -244,8 +244,8 @@ def get_user_input():
                 break
             print("Input is not valid.")
         # ValueError is raised when the input is the wrong type.
-        except ValueError:
-            print("Invalid input type. Please enter valid values.")
+        except ValueError as e:
+            print(f"Invalid input type. Please enter valid values. {e}")
     # after the user input is collected and validated return it
     return download_as_playlist, file_type, file_path, title, urls, verbose
 
@@ -497,12 +497,14 @@ def merge_files(merge_filename, titles, filetype, file_path):
         # otherwise open and write the titles to the merge.txt and...
         with open("merge.txt", "w", encoding="utf-8") as f:
             for title in titles:
-                f.write(f"file '{title}.{filetype}'\n")
+                _title = title.replace("'", "'\'' ")
+                f.write(f"file './{_title}.{filetype}'\n")
+        merge_filename_arg = merge_filename.replace(" ", "\\ ")
 
         # use ffmpeg to join the files and...
         subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i",
                         "merge.txt", "-c", "copy",
-                        f"'{merge_filename}.{filetype}'"],
+                        f"./{merge_filename_arg}.{filetype}"],
                        check=True, cwd=f"{Path.home()}{file_path}",)
         # remove merge.txt
         os.remove("merge.txt")
@@ -530,7 +532,7 @@ def make_ascii_compatable(_title):
        takes the argument _title which is the title to be normalized"""
 
     # the character "-" is not supported by ffmpeg so it is replaced with "*"
-    chardict = {"-": "*"}
+    chardict = {"-": "*", "∙": "*"}
     title = ''
     # the characters that are not accepted are changed
     # for the accepted versions of them
